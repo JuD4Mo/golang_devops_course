@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -41,14 +42,43 @@ func (o Occurrence) GetResponse() string {
 }
 
 func main() {
-	args := os.Args
+	var (
+		requestURL string
+		password   string
+		parsedURL  *url.URL
+		err        error
+	)
 
-	if len(args) < 2 {
-		fmt.Printf("Usage: ./http-get <url>\n")
+	flag.StringVar(&requestURL, "url", "", "url to access")
+	flag.StringVar(&password, "password", "", "use a password to access our api")
+
+	flag.Parse()
+
+	if parsedURL, err = url.ParseRequestURI(requestURL); err != nil {
+		fmt.Printf("validation error: URL is not valid: %s\n", err)
+		flag.Usage()
 		os.Exit(1)
 	}
 
-	res, err := doRequest(args[1])
+	client := http.Client{}
+
+	if password != "" {
+		token, err := doLoginRequest(client, parsedURL.Scheme+"://"+parsedURL.Host+"/login", password)
+		if err != nil {
+			if requestErr, ok := err.(RequestError); ok {
+				fmt.Printf("Error: %s (HTTP Code: %d, Body: %s)\n", requestErr.Err, requestErr.HTTPCode, requestErr.Body)
+				os.Exit(1)
+			}
+			fmt.Printf("Error: %s\n", err)
+			os.Exit(1)
+		}
+		client.Transport = JWTTransport{
+			transport: http.DefaultTransport,
+			token:     token,
+		}
+	}
+
+	res, err := doRequest(client, parsedURL.String())
 	if err != nil {
 		if requestErr, ok := err.(RequestError); ok {
 			fmt.Printf("Error: %s (HTTP Code: %d, Body: %s)\n", requestErr.Err, requestErr.HTTPCode, requestErr.Body)
@@ -66,12 +96,9 @@ func main() {
 	fmt.Printf("response: %s\n", res.GetResponse())
 }
 
-func doRequest(requestURL string) (Response, error) {
-	if _, err := url.ParseRequestURI(requestURL); err != nil {
-		return nil, fmt.Errorf("Usage: ./http-get <url>\n\nURL is not valid URL: %s\n", requestURL)
-	}
+func doRequest(client http.Client, requestURL string) (Response, error) {
 
-	response, err := http.Get(requestURL)
+	response, err := client.Get(requestURL)
 
 	if err != nil {
 		return nil, fmt.Errorf("ReadAll error: %s", err)
