@@ -1,11 +1,10 @@
-package main
+package api
 
 import (
 	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 )
 
 type LoginRequest struct {
@@ -16,7 +15,7 @@ type LoginResponse struct {
 	Token string `json:"token"`
 }
 
-func doLoginRequest(client http.Client, requestURL, password string) (string, error) {
+func doLoginRequest(client IClient, requestURL, password string) (string, error) {
 	logReq := LoginRequest{
 		Password: password,
 	}
@@ -27,7 +26,7 @@ func doLoginRequest(client http.Client, requestURL, password string) (string, er
 	}
 
 	// We use NewBuffer to make the body ([]byte type) implements the Read() function
-	response, err := http.Post(requestURL, "application/json", bytes.NewBuffer(body))
+	response, err := client.Post(requestURL, "application/json", bytes.NewBuffer(body))
 
 	if err != nil {
 		return "nil", fmt.Errorf("http post error: %s", err)
