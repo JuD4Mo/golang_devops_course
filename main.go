@@ -93,7 +93,7 @@ func doRequest(requestURL string) (Response, error) {
 		return nil, RequestError{
 			HTTPCode: response.StatusCode,
 			Body:     string(body),
-			Err:      fmt.Sprintf("no valid JSON returned"),
+			Err:      "no valid JSON returned",
 		}
 	}
 
